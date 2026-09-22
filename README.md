@@ -1,11 +1,27 @@
-# Jev Smart Retry lab
+# Jev Smart Retry test lab
 
-This private, manual-only workflow exercises [Jev Smart Retry](https://github.com/MakonnenMak/jev-smart-retry) at commit `8265ccd55fa65dd912b71c98262ba1d8dd4f188c`. Add the repository Actions secret `TYPESAFE_API_KEY`, then run **Actions → Jev Smart Retry lab → Run workflow** and choose a scenario. Each Action invocation allows one additional attempt. The first two choices use the Action's default `0.90` retry probability and `0.75` category confidence thresholds.
+This private, manual-only repository tests the [main branch of Jev Smart Retry](https://github.com/MakonnenMak/jev-smart-retry/tree/main). Both workflow steps use `MakonnenMak/jev-smart-retry@main`, so new runs exercise the current Action code. The Action has no published release tag yet; `main` is a moving ref. Each run records the resolved Action commit in its setup log.
 
-- **transient-network:** The command really connects to localhost before anything is listening, producing a `ConnectionRefusedError`. It then starts a short-lived local service. A retry of the exact same command can connect successfully. `attempts=2` and `recovered=true` show that Jev allowed this staged recovery. `attempts=1` means the Action declined or could not obtain a valid Jev decision; inspect the category and scores.
-- **deterministic-error:** Python compiles a file with a syntax error. The file is unchanged across attempts. `attempts=1` shows Jev declined a deterministic failure. If it retries, the compile command should fail again; a retry here is a false positive for this example.
-- **retry-mechanics-demo:** Uses the same network case with a lab-only `0.00` retry probability threshold. Use it to exercise the successful retry path if Jev declines the network case at `0.90`. Jev must still select a retryable category with its default `0.75` category confidence; it can still decline. This does not change the Action's production defaults.
+## Run a scenario
 
-The final step prints `attempts`, `recovered`, `category`, `retry-probability`, and `category-confidence` even when the Action step fails. Empty category or score fields can mean Jev was unavailable or returned an invalid response; they do not establish a classification.
+Add the repository Actions secret `TYPESAFE_API_KEY` in [Settings → Secrets and variables → Actions](https://github.com/MakonnenMak/jev-smart-retry-lab/settings/secrets/actions), then open [Jev Smart Retry lab](https://github.com/MakonnenMak/jev-smart-retry-lab/actions/workflows/jev-lab.yml), select **Run workflow**, and choose a scenario. The workflow runs only through `workflow_dispatch` and gives `GITHUB_TOKEN` read-only contents permission.
 
-These two staged failures check the workflow's mechanics and a couple of decisions. They do **not** establish accuracy on real CI failures, which vary in logs, causes, environments, and prevalence. Calibration requires labeled real failures and measuring both missed recoveries and harmful retries.
+| Scenario | What happens | What to look for |
+| --- | --- | --- |
+| `transient-network` | The command makes a real localhost connection attempt before a service is listening. The resulting `ConnectionRefusedError` starts a short-lived local service; the exact same command can succeed on retry. | At the Action's default thresholds, `attempts=2` and `recovered=true` mean Jev allowed recovery. `attempts=1` means it declined or could not get a valid decision; inspect the category and scores. |
+| `deterministic-error` | Python compiles a file with a syntax error, unchanged between attempts. | `attempts=1` means Jev declined this deterministic failure. A retry is a false positive for this case and should fail again. |
+| `retry-mechanics-demo` | Reuses the network case with a lab-only `0.00` retry probability threshold. | `attempts=2` and `recovered=true` demonstrate the retry mechanism. Jev must still select a retryable category with at least the default `0.75` category confidence. |
+
+All scenarios use `max-retries=1`. The first two use the Action's default `0.90` retry probability and `0.75` category confidence thresholds. The demo changes only its own retry probability threshold; it does not change the Action's defaults. The `if: always()` result step prints `attempts`, `recovered`, `category`, `retry-probability`, and `category-confidence`, including after an expected failure. Empty classification fields may mean Jev was unavailable or returned an invalid response.
+
+## Observed runs
+
+These are the initial runs on 2026-09-22, when `main` resolved to `8265ccd55fa65dd912b71c98262ba1d8dd4f188c`. Scores can vary on later runs.
+
+| Scenario | Result |
+| --- | --- |
+| [`transient-network`](https://github.com/MakonnenMak/jev-smart-retry-lab/actions/runs/35777285360) | Real connection refusal; `network`, probability `0.41`, confidence `0.99`; declined at `0.90` (`attempts=1`). |
+| [`deterministic-error`](https://github.com/MakonnenMak/jev-smart-retry-lab/actions/runs/35777308394) | Syntax error; `code_regression`, probability `0.03`, confidence `1.00`; declined (`attempts=1`). |
+| [`retry-mechanics-demo`](https://github.com/MakonnenMak/jev-smart-retry-lab/actions/runs/35777526020) | Real connection refusal followed by success on the same command; `attempts=2`, `recovered=true`. |
+
+These staged cases verify the workflow and illustrate individual decisions. They do not establish accuracy on real CI failures, whose causes, logs, environments, and prevalence differ. Evaluating that requires labeled real failures and measuring both missed recoveries and harmful retries.
