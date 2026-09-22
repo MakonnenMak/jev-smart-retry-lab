@@ -1,0 +1,58 @@
+name: Jev Smart Retry lab
+
+'on':
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: Failure scenario
+        required: true
+        type: choice
+        options:
+          - transient-network
+          - deterministic-error
+          - retry-mechanics-demo
+
+permissions:
+  contents: read
+
+jobs:
+  exercise:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reserve a localhost port for the network cases
+        if: inputs.scenario != 'deterministic-error'
+        run: |
+          python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(f"LAB_PORT={s.getsockname()[1]}")' >> "$GITHUB_ENV"
+
+      - name: Exercise default thresholds
+        if: inputs.scenario != 'retry-mechanics-demo'
+        id: standard
+        uses: MakonnenMak/jev-smart-retry@8265ccd55fa65dd912b71c98262ba1d8dd4f188c
+        with:
+          command: ${{ inputs.scenario == 'deterministic-error' && 'python3 -m py_compile cases/broken.py' || 'python3 cases/network_case.py' }}
+          typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
+          max-retries: '1'
+
+      - name: Retry mechanics demo (lab threshold 0.50)
+        if: inputs.scenario == 'retry-mechanics-demo'
+        id: demo
+        uses: MakonnenMak/jev-smart-retry@8265ccd55fa65dd912b71c98262ba1d8dd4f188c
+        with:
+          command: python3 cases/network_case.py
+          typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
+          max-retries: '1'
+          retry-threshold: '0.50'
+
+      - name: Print Smart Retry result
+        if: always()
+        env:
+          ATTEMPTS: ${{ steps.standard.outputs.attempts || steps.demo.outputs.attempts }}
+          RECOVERED: ${{ steps.standard.outputs.recovered || steps.demo.outputs.recovered }}
+          CATEGORY: ${{ steps.standard.outputs.category || steps.demo.outputs.category }}
+          RETRY_PROBABILITY: ${{ steps.standard.outputs.retry-probability || steps.demo.outputs.retry-probability }}
+          CATEGORY_CONFIDENCE: ${{ steps.standard.outputs.category-confidence || steps.demo.outputs.category-confidence }}
+        run: |
+          printf 'attempts=%s\nrecovered=%s\ncategory=%s\nretry-probability=%s\ncategory-confidence=%s\n' \
+            "$ATTEMPTS" "$RECOVERED" "$CATEGORY" "$RETRY_PROBABILITY" "$CATEGORY_CONFIDENCE"
