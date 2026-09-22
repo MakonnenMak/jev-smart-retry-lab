@@ -35,7 +35,7 @@ jobs:
           typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
           max-retries: '1'
 
-      - name: Retry mechanics demo (lab threshold 0.50)
+      - name: Retry mechanics demo (lab threshold 0.00)
         if: inputs.scenario == 'retry-mechanics-demo'
         id: demo
         uses: MakonnenMak/jev-smart-retry@8265ccd55fa65dd912b71c98262ba1d8dd4f188c
@@ -43,7 +43,7 @@ jobs:
           command: python3 cases/network_case.py
           typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
           max-retries: '1'
-          retry-threshold: '0.50'
+          retry-threshold: '0.00'
 
       - name: Print Smart Retry result
         if: always()

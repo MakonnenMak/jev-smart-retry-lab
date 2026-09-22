@@ -4,7 +4,7 @@ This private, manual-only workflow exercises [Jev Smart Retry](https://github.co
 
 - **transient-network:** The command really connects to localhost before anything is listening, producing a `ConnectionRefusedError`. It then starts a short-lived local service. A retry of the exact same command can connect successfully. `attempts=2` and `recovered=true` show that Jev allowed this staged recovery. `attempts=1` means the Action declined or could not obtain a valid Jev decision; inspect the category and scores.
 - **deterministic-error:** Python compiles a file with a syntax error. The file is unchanged across attempts. `attempts=1` shows Jev declined a deterministic failure. If it retries, the compile command should fail again; a retry here is a false positive for this example.
-- **retry-mechanics-demo:** Uses the same network case with a lab-only `0.50` retry probability threshold. Use it to exercise the successful retry path if Jev declines the network case at `0.90`. Category confidence stays at its default `0.75`; Jev can still decline. This does not change the Action's production defaults.
+- **retry-mechanics-demo:** Uses the same network case with a lab-only `0.00` retry probability threshold. Use it to exercise the successful retry path if Jev declines the network case at `0.90`. Jev must still select a retryable category with its default `0.75` category confidence; it can still decline. This does not change the Action's production defaults.
 
 The final step prints `attempts`, `recovered`, `category`, `retry-probability`, and `category-confidence` even when the Action step fails. Empty category or score fields can mean Jev was unavailable or returned an invalid response; they do not establish a classification.
 
